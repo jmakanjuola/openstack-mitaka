@@ -1,0 +1,44 @@
+[DEFAULT]
+verbose = True
+core_plugin = ml2
+service_plugins = router
+allow_overlapping_ips = True
+rpc_backend = rabbit
+auth_strategy = keystone
+notify_nova_on_port_status_changes = True
+notify_nova_on_port_data_changes = True
+[matchmaker_redis]
+[matchmaker_ring]
+[quotas]
+[agent]
+[keystone_authtoken]
+auth_uri = http://{{ inventory_hostname }}:5000
+auth_url = http://{{ inventory_hostname }}:35357
+memcached_servers = {{ inventory_hostname }}:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = neutron
+password = {{ neutron_password }}
+[database]
+connection = mysql+pymysql://neutron:{{ neutrondb_password }}@{{ inventory_hostname }}/neutron
+[nova]
+auth_url = http://{{ inventory_hostname }}:35357
+auth_plugin = password
+project_domain_id = default
+user_domain_id = default
+region_name = RegionOne
+project_name = service
+username = nova
+password = {{ nova_password }}
+[oslo_concurrency]
+lock_path = /var/lib/neutron/tmp
+[oslo_policy]
+[oslo_messaging_amqp]
+[oslo_messaging_qpid]
+[oslo_messaging_rabbit]
+rabbit_host = {{ inventory_hostname }}
+rabbit_userid = openstack
+rabbit_password = {{ rabbitmq_password }}
+[qos]

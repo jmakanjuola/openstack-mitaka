@@ -1,0 +1,168 @@
+---
+- name: Create Keystone database 
+  mysql_db: name=keystone state=present
+
+- name: Grant proper access to the keystone database
+  mysql_user: name=keystone password={{ keystonedb_password }} priv=*.*:ALL,GRANT state=present
+
+- name: Install openstack-keystone httpd mod_wsgi memcached python-memcached packages
+  yum: state=present name={{ item }}
+  with_items:
+  - httpd
+  - openstack-keystone 
+  - mod_wsgi 
+  - memcached 
+  - python-memcached
+
+- name: Start Memcached service
+  service: name=memcached state=started enabled=yes
+
+- name: Copy keystone file
+  template:
+   src: "{{ keystone_src }}"
+   dest: "{{ keystone_dir }}"
+   owner: keystone
+   group: keystone
+   backup: yes
+
+- name: Copy Identity service database
+  template:
+   src: "{{ keystone_db_sync }}"
+   dest: "{{ keystone_db_dir }}"
+   owner: keystone
+   group: keystone
+   mode: 0775
+
+- name: Populate the Identity service database
+  shell: sh {{ keystone_db_dir }}
+- file: path={{ keystone_db_dir }} state=absent
+
+- name: configure Apache server for Keystone
+  lineinfile: dest={{ http_dir }} regexp={{ http_info }} line={{ http_host }} state=present backup=yes
+
+- name: Create wsgi keystone
+  template: src={{ keystone_wsgi_src }} dest={{ keystone_wsgi_dir }}  
+
+- name: Start Apache HTTP service
+  service: name=httpd state=started enabled=yes
+
+- name: create  service entity for the Identity service
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} service create --name keystone --description "OpenStack Identity" identity && touch {{ root_dir }}.keystone_service
+  args:
+   creates: "{{ root_dir }}.keystone_service"
+  run_once: true
+  ignore_errors: True
+
+- name: Create Identity service API endpoint  public
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} endpoint create --region RegionOne identity public http://{{ inventory_hostname }}:5000/v3 && touch {{ root_dir }}.keystone_endpoint_public
+  args:
+   creates: "{{ root_dir }}.keystone_endpoint_public"
+  run_once: true
+  ignore_errors: True
+
+- name: Create Identity service API endpoint  
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} endpoint create --region RegionOne identity internal http://{{ inventory_hostname }}:5000/v3 && touch {{ root_dir }}.keystone_endpoint_internal
+  args:
+   creates: "{{ root_dir }}.keystone_endpoint_internal"
+  run_once: true
+  ignore_errors: True
+
+- name: Create Identity service API endpoint  
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} endpoint create --region RegionOne identity admin http://{{ inventory_hostname }}:5000/v3 && touch {{ root_dir }}.keystone_endpoint_admin
+  args:
+   creates: "{{ root_dir }}.keystone_endpoint_admin"
+  run_once: true
+  ignore_errors: True
+
+- name: Create default domain
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} domain create --description "Default Domain" default && {{ root_hit }}.keystone_default
+  args:
+   creates: "{{ root_dir }}.keystone_default"
+  run_once: true
+  ignore_errors: True
+
+- name: Create admin project
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} project create --domain default --description "Admin Project" admin && {{ root_hit }}.keystone_project 
+  args:
+   creates: "{{ root_dir }}.keystone_project"
+  run_once: true
+  ignore_errors: True
+
+- name: Create admin user
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} user create --domain default --password {{ admin_pass }}  admin && {{ root_hit }}.admin_user
+  args:
+   creates: "{{ root_dir }}.admin_user"
+  run_once: true
+  ignore_errors: True
+
+- name: Create admin role
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} role create admin && {{ root_hit }}.admin_role
+  args:
+   creates: "{{ root_dir }}.admin_role"
+  run_once: true
+  ignore_errors: True
+
+- name: Add role to the admin project and user
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} role add --project admin --user admin admin && {{ root_hit }}.admin_project
+  args:
+   creates: "{{ root_dir }}.admin_project"
+  run_once: true
+  ignore_errors: True
+
+- name: Create service project
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} project create --domain default --description "Service Project" service && {{ root_hit }}.admin_service
+  args:
+   creates: "{{ root_dir }}.admin_service"
+  run_once: true
+  ignore_errors: True
+
+- name: Create demo project
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} project create --domain default --description "Demo Project" demo && {{ root_hit }}.demo_project
+  args:
+   creates: "{{ root_dir }}.demo_project"
+  run_once: true
+  ignore_errors: True
+
+- name: Create demo user
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} user create --domain default --password {{ demo_pass }} demo && {{ root_hit }}.demo_user
+  args:
+   creates: "{{ root_dir }}.demo_user"
+  run_once: true
+  ignore_errors: True
+
+- name: Create demo role  
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} role create user && {{ root_hit }}.demo_role
+  args:
+   creates: "{{ root_dir }}.demo_role"
+  run_once: true
+  ignore_errors: True
+
+- name: Add role to the demo project and user
+  shell: export OS_TOKEN={{ token }} && export OS_URL=http://{{ inventory_hostname }}:35357/v3 && export OS_IDENTITY_API_VERSION=3 && {{ openstack }} role add --project demo --user demo user && {{ root_hit }}.demo_user_role
+  args:
+   creates: "{{ root_dir }}.demo_user_role"
+  run_once: true
+  ignore_errors: True
+
+- name: Copy temporary authentication token mechanism file
+  template:
+   src: "keystone-dist-paste.ini.j2"
+   dest: "/etc/keystone/keystone-paste.ini"
+   owner: keystone
+   group: keystone
+   backup: yes
+
+- name: Unset the temporary OS_TOKEN and OS_URL environment variables
+  shell: unset OS_TOKEN OS_URL && {{ root_hit }}.OS_TOKEN
+  args:
+   creates: "{{ root_dir }}.OS_TOKEN"
+  run_once: true
+  ignore_errors: True
+
+- name: Create client environment scripts for the admin
+  template:
+   src: "admin-openrc.j2"
+   dest: "{{ root_dir }}admin-openrc"
+   owner: root
+   group: root
+   mode: 0775

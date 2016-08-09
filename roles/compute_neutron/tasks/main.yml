@@ -1,0 +1,29 @@
+---
+- name: Install Compute Networking components packages
+  yum: state=present name={{ item }}
+  with_items:
+  - openstack-neutron-linuxbridge 
+  - ebtables 
+  - ipset
+
+- name: Copy neutron conf file
+  template:
+   src: "{{ neutron_src }}"
+   dest: "{{ neutron_dir }}"
+   owner: neutron
+   group: neutron
+   backup: yes
+
+- name: Copy neutron Linux bridge agent
+  template:
+   src: "{{ linuxbridge_agent_src }}"
+   dest: "{{ linuxbridge_agent_dir }}"
+   owner: neutron
+   group: neutron
+   backup: yes
+
+- name: Restart Compute service
+  service: name=openstack-nova-compute state=restarted
+
+- name: Start Linux bridge agent service
+  service: name=neutron-linuxbridge-agent state=started enabled=yes

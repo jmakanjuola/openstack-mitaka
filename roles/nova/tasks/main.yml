@@ -1,0 +1,110 @@
+---
+- name: Create Nova database 
+  mysql_db: name=nova state=present
+
+- name: Create Nova_api database
+  mysql_db: name=nova_api state=present
+
+- name: Grant proper access to the nova database
+  mysql_user: name=nova password={{ novadb_password }} priv=*.*:ALL,GRANT state=present
+
+- name: Grant proper access to the nova_api database
+  mysql_user: name=nova_api password={{ novadb_password }} priv=*.*:ALL,GRANT state=present
+
+- name: Install Nova packages
+  yum: state=present name={{ item }}
+  with_items:
+  - openstack-nova-api 
+  - openstack-nova-conductor 
+  - openstack-nova-console 
+  - openstack-nova-novncproxy 
+  - openstack-nova-scheduler 
+
+- name: Create nova user
+  shell: source /root/admin-openrc &&  {{ openstack }} user create --domain default --password {{ novadb_password }} nova && {{ root_hit }}.nova_user
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.nova_user"
+  run_once: true
+  ignore_errors: True
+
+- name: Add admin role to the nova user and service project
+  shell: source /root/admin-openrc && {{ openstack }} role add --project service --user nova admin && {{ root_hit }}.nova_role
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.nova_role"
+  run_once: true
+  ignore_errors: True 
+
+- name: Create nova service entity
+  shell: source /root/admin-openrc && {{ openstack }} service create --name nova --description "OpenStack Compute" compute && {{ root_hit }}.nova_service
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.nova_service"
+  run_once: true
+  ignore_errors: True
+
+- name: Create Compute service API endpoints
+  shell: source /root/admin-openrc && {{ openstack }} endpoint create --region RegionOne compute public http://{{ inventory_hostname }}:8774/v2.1/%\(tenant_id\)s && {{ root_hit }}.nova_endpoint_public
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.nova_endpoint_public"
+  run_once: true
+  ignore_errors: True
+
+- name: Create Compute service API endpoints 
+  shell: source /root/admin-openrc && {{ openstack }} endpoint create --region RegionOne compute internal http://{{ inventory_hostname }}:8774/v2.1/%\(tenant_id\)s && {{ root_hit }}.nova_endpoint_internal
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.nova_endpoint_internal"
+  run_once: true
+  ignore_errors: True
+
+- name: Create Compute service API endpoints
+  shell: source /root/admin-openrc && {{ openstack }} endpoint create --region RegionOne compute admin http://{{ inventory_hostname }}:8774/v2.1/%\(tenant_id\)s && {{ root_hit }}.nova_endpoint_admin
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.nova_endpoint_admin"
+  run_once: true
+  ignore_errors: True
+
+- name: Copy nova file
+  template:
+   src: "{{ nova_src }}"
+   dest: "{{ nova_dir }}"
+   owner: nova
+   group: nova
+   backup: yes
+
+- name: Copy nova compute database file
+  template:
+   src: "{{ nova_db_sync }}"
+   dest: "{{ nova_db_dir }}"
+   owner: nova
+   group: nova
+   mode: 0775
+
+- name: Populate the Image service database
+  shell: sh {{ nova_db_dir }} && {{ root_hit }}.nova_db_sync
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.nova_db_sync"
+  run_once: true
+  ignore_errors: True
+
+- file: path={{ nova_db_dir }} state=absent
+
+- name: Start openstack-nova-api service
+  service: name=openstack-nova-api state=started enabled=yes
+
+- name: Start openstack-nova-consoleauth service
+  service: name=openstack-nova-consoleauth state=started enabled=yes
+
+- name: Start openstack-nova-scheduler service
+  service: name=openstack-nova-scheduler state=started enabled=yes
+
+- name: Start openstack-nova-conductor service
+  service: name=openstack-nova-conductor state=started enabled=yes
+
+- name: Start openstack-nova-novncproxy service
+  service: name=openstack-nova-novncproxy state=started enabled=yes

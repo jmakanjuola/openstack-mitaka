@@ -1,0 +1,3 @@
+---
+- name: Update hosts file
+  lineinfile: dest={{ hosts_dir }} line="{{ hosts_info }}"

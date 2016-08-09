@@ -1,0 +1,54 @@
+---
+- name: Install mariadb mariadb-server MySQL-python packages
+  yum: state=present name={{ item }}
+  with_items:
+  - mariadb
+  - mariadb-server
+  - MySQL-python
+
+- name: Copy Mysql file
+  template:
+   src: "{{ bind_name }}"
+   dest: "{{ bind_conf }}"
+   owner: root
+   group: root
+   mode: 0600 
+
+- name: Start MySQL with MariaDB
+  service: name=mariadb state=started enabled=yes
+
+- name: Create .my.cnf
+  template:
+   src: "{{ my_cnf_src }}"
+   dest: "{{ my_cnf_dir }}"
+   owner: root
+   group: root
+   mode: 0600
+
+- name: Set root user password
+  # If .my.cnf already exists, this will cause an mysql-root-password update.
+  mysql_user:
+    name: root
+    password: "{{ mysql_root_password }}"
+    check_implicit_admin: true
+
+- name: Removes anonymous user account for localhost
+  mysql_user: name='' host=localhost state=absent
+
+- name: Install MongoDB packages
+  yum: state=present name={{ item }}
+  with_items:
+  - mongodb-server
+  - mongodb
+
+- name: Copy MongoDB config
+  template:
+   src: "{{ mongodb_conf_src }}"
+   dest: "{{ mongodb_conf_dest }}"
+   owner: root
+   group: root
+   mode: 0644
+   backup: yes 
+
+- name: Start MongoDB service
+  service: name=mongod state=started enabled=yes

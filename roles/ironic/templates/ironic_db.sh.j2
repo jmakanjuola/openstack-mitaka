@@ -1,0 +1,4 @@
+/usr/bin/mysql -uroot -e "grant all on ironic.* to ironic@{{ inventory_hostname }} identified by '{{ ironicdb_password }}';"
+/usr/bin/mysql -uroot -e "grant all on ironic.* to ironic@localhost identified by '{{ ironicdb_password }}';"
+/usr/bin/mysql -uroot -e "grant all on ironic.* to ironic@'%' identified by '{{ ironicdb_password }}';"
+ironic-dbsync --config-file /etc/ironic/ironic.conf create_schema

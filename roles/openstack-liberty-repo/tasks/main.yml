@@ -1,0 +1,73 @@
+---
+- name: Create openstack-liberty packages directory
+  file: path={{ repo_dir }} state=directory mode=0755
+  become: True
+
+- name: Copy openstack-liberty Repo file
+  template:
+   src: "{{ repo_name }}"
+   dest: "{{ repo_conf }}"
+
+- name: Check that the somefile.conf exists
+  stat:
+    path: "{{ repo_dir }}"
+  register: openstack_liberty_repo
+
+- name: Create openstack-liberty custom RHEL7 Repo for Ironic....
+  unarchive: src={{ openstack_liberty_pkg }} dest={{ repo_dir }}
+  run_once: True
+  when: openstack_liberty_repo.stat.exists == False    
+
+- name: Remove Ansible archive Temp files
+  file: path={{ ansible_archive }} state=absent
+  
+- name: Install HTTP packages
+  yum: state=present name={{ item }}
+  with_items:
+  - httpd
+
+- name: Copy http repo file
+  template:
+   src: "{{ http_repo_name }}"
+   dest: "{{ http_repo_conf }}"
+
+- name: Stop Firewall and Diable it
+  service: name=firewalld state=stopped enabled=no
+
+- name: Start HTTP
+  service: name=httpd state=started enabled=yes
+
+- name: upgrade all packages
+  yum: name=* state=latest
+
+#- name: Check if the serever has been updated
+#  stat:
+#    path: "/root/.update"
+#  register: os_update
+
+#- name: restart machine
+#  shell: sleep 2 && shutdown -r now "Ansible updates triggered" && sleep 20
+#  async: 1
+#  poll: 0
+#  sudo: true
+#  ignore_errors: true
+
+#- name: restart machine
+#  shell: sleep 2 && shutdown -r now "Ansible updates triggered"
+#  async: 1
+#  poll: 0
+#  sudo: true
+#  ignore_errors: true
+#  
+#- name: waiting for server to come back
+#  local_action: wait_for host={{ inventory_hostname }} state=started search_regex=OpenSSH port=22 timeout=60
+#  local_action: wait_for host={{ inventory_hostname }} state=started port=22 delay=1 timeout=300
+#  sudo: false
+#  run_once: True
+#  when: os_update.stat.exists == False
+
+- name: Install OpenStack client and openstack-selinux packages
+  yum: state=present name={{ item }}
+  with_items:
+  - python-openstackclient
+  - openstack-selinux

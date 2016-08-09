@@ -1,0 +1,26 @@
+[DEFAULT]
+debug = True
+log_dir = /var/log/ironic-inspector
+[database]
+connection = sqlite:////var/lib/ironic-inspector/inspector.sqlite
+[discoverd]
+[firewall]
+[ironic]
+os_auth_url =http://{{ ansible_host2 }}:5000/v2.0
+os_username = ironic
+os_password = {{ ironic_password }}
+os_tenant_name =service
+retry_interval = 10
+max_retries = 6
+[keystone_authtoken]
+auth_uri = http://{{ inventory_hostname }}:5000/v3
+admin_user=ironic
+admin_tenant_name=service
+admin_password={{ ironic_password }}
+identity_uri=http://{{ inventory_hostname }}:35357
+[processing]
+keep_ports = added
+enable_setting_ipmi_credentials = True
+processing_hooks = $default_processing_hooks,extra_hardware
+ramdisk_logs_dir = /var/log/ironic-inspector/ramdisk/
+[swift]

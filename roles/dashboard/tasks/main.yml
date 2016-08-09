@@ -1,0 +1,16 @@
+---
+- name: Install Openstack-dashboard components packages
+  yum: state=present name={{ item }}
+  with_items:
+  - openstack-dashboard
+
+- name: Configure the dashboard to use OpenStack services on the controller node
+  template:
+   src: "{{ local_settings_src }}"
+   dest: "{{ local_settings_dir }}"
+   owner: root
+   group: apache
+   backup: yes
+
+- name: Resatrt web server http service
+  service: name=httpd state=restarted

@@ -1,0 +1,23 @@
+#!/usr/bin/env ansible-playbook
+# vim:ft=ansible:
+- hosts: controller
+  sudo: True
+  sudo_user: root
+  gather_facts: no
+  serial: 1
+  roles:
+     - host-file
+     - environment
+     - mysql
+     - rabbitmq
+     - keystone
+     - glance
+     - nova
+     - neutron
+     - dashboard
+- hosts: compute
+  roles:
+     - host-file
+     - environment
+     - compute_nova
+     - compute_neutron

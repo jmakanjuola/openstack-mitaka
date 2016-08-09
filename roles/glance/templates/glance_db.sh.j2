@@ -1,0 +1,4 @@
+/usr/bin/mysql -uroot -e "grant all on glance.* to glance@{{ inventory_hostname }} identified by '{{ glancedb_password }}';"
+/usr/bin/mysql -uroot -e "grant all on glance.* to glance@localhost identified by '{{ glancedb_password }}';"
+/usr/bin/mysql -uroot -e "grant all on glance.* to glance@'%' identified by '{{ glancedb_password }}';"
+su -s /bin/sh -c "glance-manage db_sync" glance

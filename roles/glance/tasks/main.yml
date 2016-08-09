@@ -1,0 +1,119 @@
+---
+- name: Create Glance database 
+  mysql_db: name=glance state=present
+
+- name: Grant proper access to the glance database
+  mysql_user: name=glance password={{ glancedb_password }} priv=*.*:ALL,GRANT state=present
+
+- name: Install openstack-glance python-glance python-glanceclient
+  yum: state=present name={{ item }}
+  with_items:
+  - openstack-glance 
+
+- name: Create glance user
+  shell: source /root/admin-openrc &&  {{ openstack }} user create --domain default --password {{ glancedb_password }} glance && {{ root_hit }}.glance_user
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.glance_user"
+  run_once: true
+  ignore_errors: True
+
+- name: Add admin role to the glance user and service project
+  shell: source /root/admin-openrc && {{ openstack }} role add --project service --user glance admin && {{ root_hit }}.glance_role
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.glance_role"
+  run_once: true
+  ignore_errors: True 
+
+- name: Create glance service entity
+  shell: source /root/admin-openrc && {{ openstack }} service create --name glance --description "OpenStack Image service" image && {{ root_hit }}.glance_service
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.glance_service"
+  run_once: true
+  ignore_errors: True
+
+- name: Create glance service entity
+  shell: source /root/admin-openrc && {{ openstack }} endpoint create --region RegionOne image public http://{{ inventory_hostname }}:9292 && {{ root_hit }}.glance_endpoint_public
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.glance_endpoint_public"
+  run_once: true
+  ignore_errors: True
+
+- name: Create glance service entity  
+  shell: source /root/admin-openrc && {{ openstack }} endpoint create --region RegionOne image internal http://{{ inventory_hostname }}:9292 && {{ root_hit }}.glance_endpoint_internal
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.glance_endpoint_internal"
+  run_once: true
+  ignore_errors: True
+
+- name: Create glance service entity  
+  shell: source /root/admin-openrc && {{ openstack }} endpoint create --region RegionOne image admin http://{{ inventory_hostname }}:9292 && {{ root_hit }}.glance_endpoint_admin
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.glance_endpoint_admin"
+  run_once: true
+  ignore_errors: True
+
+- name: Copy glance api file
+  template:
+   src: "{{ glance_api_src }}"
+   dest: "{{ glance_api_dir }}"
+   owner: glance
+   group: glance
+   backup: yes
+
+- name: Copy glance registry file
+  template:
+   src: "{{ glance_registry_src }}"
+   dest: "{{ glance_registry_dir }}"
+   owner: glance
+   group: glance
+   backup: yes
+
+- name: Copy glance Imagee database file
+  template:
+   src: "{{ glance_db_sync }}"
+   dest: "{{ glance_db_dir }}"
+   owner: glance
+   group: glance
+   mode: 0775
+
+- name: Populate the Image service database
+  command: sh {{ glance_db_dir }} && {{ root_hit }}.glance_db_sync
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.glance_db_sync"
+  run_once: true
+  ignore_errors: True
+
+- file: path={{ glance_db_dir }} state=absent
+
+- name: Start openstack-glance-api service
+  service: name=openstack-glance-api state=started enabled=yes
+
+- name: Start openstack-glance-registry service
+  service: name=openstack-glance-registry state=started enabled=yes
+
+- name: Create temp image directory
+  file: path={{ cirros_dir }} state=directory mode=0755
+ 
+- name: Copy  image
+  copy: src={{ cirros_src }} dest={{ cirros_image }}
+
+- name: Upload image 
+  shell: source /root/admin-openrc && glance image-create --name "cirros-0.3.4-x86_64" --file {{ cirros_image }} --disk-format qcow2 --container-format bare --visibility public --progress && {{ root_hit }}.glance_image
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.glance_image"
+  run_once: true
+  ignore_errors: True
+
+- name: Remove Ansible archive Temp files
+  file: path={{ ansible_archive }} state=absent
+
+- file: path={{ cirros_dir }} state=absent
+

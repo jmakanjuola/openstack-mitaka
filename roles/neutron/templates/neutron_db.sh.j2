@@ -1,0 +1,4 @@
+/usr/bin/mysql -uroot -e "grant all on neutron.* to neutron@{{ inventory_hostname }} identified by '{{ neutrondb_password }}';"
+/usr/bin/mysql -uroot -e "grant all on neutron.* to neutron@localhost identified by '{{ neutrondb_password }}';"
+/usr/bin/mysql -uroot -e "grant all on neutron.* to neutron@'%' identified by '{{ neutrondb_password }}';"
+su -s /bin/sh -c "neutron-db-manage --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugins/ml2/ml2_conf.ini upgrade head" neutron

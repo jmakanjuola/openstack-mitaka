@@ -1,0 +1,10 @@
+[linux_bridge]
+physical_interface_mappings = {{ flat_networks }}:{{ bridge_mappings }}
+[vxlan]
+enable_vxlan = True
+local_ip = {{ ansible_host }}
+l2_population = True
+[agent]
+[securitygroup]
+enable_security_group = True
+firewall_driver = neutron.agent.linux.iptables_firewall.IptablesFirewallDriver

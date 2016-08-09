@@ -1,0 +1,18 @@
+---
+- name: Enable the OpenStack repository
+  action: yum name={{ mitaka_repo }} state=installed
+
+- name: upgrade all packages
+  yum: name=* state=latest
+
+- name: Install OpenStack client and openstack-selinux packages
+  yum: state=present name={{ item }}
+  with_items:
+  - python-openstackclient
+  - openstack-selinux
+
+- name: Stop Firewall and Diable it
+  service: name=firewalld state=stopped enabled=no
+
+- name: Diable SELinux policy
+  selinux: state=disabled

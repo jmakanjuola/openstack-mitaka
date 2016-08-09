@@ -1,0 +1,51 @@
+[DEFAULT]
+my_ip = {{ ansible_host2 }}
+enabled_drivers=fake,pxe_ssh,pxe_ipmitool
+[agent]
+[amt]
+[api]
+[cimc]
+[cisco_ucs]
+[conductor]
+api_url=http://{{ ansible_host2 }}:6385
+[console]
+[cors]
+[cors.subdomain]
+[database]
+connection = mysql+pymysql://ironic:{{ ironicdb_password }}@{{ inventory_hostname }}/ironic
+[deploy]
+[dhcp]
+[disk_partitioner]
+[drac]
+[glance]
+glance_host={{ inventory_hostname }}
+[iboot]
+[ilo]
+[inspector]
+[ipmi]
+[irmc]
+[keystone]
+[keystone_authtoken]
+auth_uri=http://{{ inventory_hostname }}:5000/
+auth_host={{ inventory_hostname }}
+auth_port=35357
+auth_protocol=http
+admin_user=ironic
+admin_password={{ ironic_password }}
+admin_tenant_name=service
+[matchmaker_redis]
+[matchmaker_ring]
+[neutron]
+url=http://{{ inventory_hostname }}:9696
+[oslo_concurrency]
+[oslo_messaging_amqp]
+[oslo_messaging_qpid]
+[oslo_messaging_rabbit]
+rabbit_host={{ inventory_hostname }}
+[oslo_policy]
+[pxe]
+[seamicro]
+[snmp]
+[ssh]
+[swift]
+[virtualbox]

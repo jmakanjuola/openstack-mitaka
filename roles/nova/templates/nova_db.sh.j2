@@ -1,0 +1,8 @@
+/usr/bin/mysql -uroot -e "grant all on nova.* to nova@{{ inventory_hostname }} identified by '{{ novadb_password }}';"
+/usr/bin/mysql -uroot -e "grant all on nova.* to nova@localhost identified by '{{ novadb_password }}';"
+/usr/bin/mysql -uroot -e "grant all on nova.* to nova@'%' identified by '{{ novadb_password }}';"
+/usr/bin/mysql -uroot -e "grant all on nova_api.* to nova@{{ inventory_hostname }} identified by '{{ novadb_password }}';"
+/usr/bin/mysql -uroot -e "grant all on nova_api.* to nova@localhost identified by '{{ novadb_password }}';"
+/usr/bin/mysql -uroot -e "grant all on nova_api.* to nova@'%' identified by '{{ novadb_password }}';"
+su -s /bin/sh -c "nova-manage api_db sync" nova
+su -s /bin/sh -c "nova-manage db sync" nova

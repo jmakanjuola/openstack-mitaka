@@ -1,0 +1,23 @@
+[DEFAULT]
+verbose = True
+[database]
+connection = mysql+pymysql://glance:{{ glancedb_password }}@{{ inventory_hostname }}/glance
+[glance_store]
+[keystone_authtoken]
+auth_uri = http://{{ inventory_hostname }}:5000
+auth_url = http://{{ inventory_hostname }}:35357
+memcached_servers = controller:11211
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = glance
+password = {{ glancedb_password }}
+[matchmaker_redis]
+[matchmaker_ring]
+[oslo_messaging_amqp]
+[oslo_messaging_qpid]
+[oslo_messaging_rabbit]
+[oslo_policy]
+[paste_deploy]
+flavor = keystone

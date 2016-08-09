@@ -1,0 +1,145 @@
+---
+- name: Create ironic database
+  mysql_db: name=ironic state=present
+
+- name: Grant proper access to the ironic database
+  mysql_user: name=ironic password={{ ironicdb_password }} priv=*.*:ALL,GRANT state=present
+
+- name: Install Ironic components packages
+  yum: state=present name={{ item }}
+  with_items:
+  - openstack-ironic-api
+  - openstack-ironic-conductor
+  - python-ironicclient
+  - openstack-ironic-inspector
+
+- name: Create ironic user
+  shell: source /root/admin-openrc &&  {{ openstack }} user create --domain default --password {{ ironic_password }} ironic && {{ root_hit }}.ironic_user
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.ironic_user"
+  run_once: true
+  ignore_errors: True
+
+- name: Add admin role to the ironic user and service project
+  shell: source /root/admin-openrc && {{ openstack }} role add --project service --user ironic admin && {{ root_hit }}.ironic_role
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.ironic_role"
+  run_once: true
+  ignore_errors: True
+
+- name: Register the Bare Metal service with the Identity service 
+  shell: source /root/admin-openrc && {{ openstack }} service create --name ironic --description "Ironic baremetal provisioning service" baremetal && {{ root_hit }}.baremetal
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.baremetal"
+  run_once: true
+  ignore_errors: True
+
+- name: Create Bare Metal service API endpoints
+  shell: source /root/admin-openrc && {{ openstack }} endpoint create --region RegionOne baremetal public http://{{ inventory_hostname }}:6385 && {{ root_hit }}.ironic_endpoint_public
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.ironic_endpoint_public"
+  run_once: true
+  ignore_errors: True
+
+- name: Create Bare Metal service API endpoints
+  shell: source /root/admin-openrc && {{ openstack }} endpoint create --region RegionOne baremetal internal http://{{ inventory_hostname }}:6385 && {{ root_hit }}.ironic_endpoint_internal
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.ironic_endpoint_internal"
+  run_once: true
+  ignore_errors: True
+
+- name: Create Bare Metal service API endpoints
+  shell: source /root/admin-openrc && {{ openstack }} endpoint create --region RegionOne baremetal admin http://{{ inventory_hostname }}:6385 && {{ root_hit }}.ironic_endpoint_admin
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.ironic_endpoint_admin"
+  run_once: true
+  ignore_errors: True
+
+- name: Copy ironic conf file
+  template:
+   src: "{{ ironic_conf_src }}"
+   dest: "{{ ironic_conf_dir }}"
+   owner: ironic
+   group: ironic
+   backup: yes
+
+- name: Copy ironic-inspector file
+  template:
+   src: "{{ inspector_conf_src }}"
+   dest: "{{ inspector_conf_dir }}"
+   owner: ironic-inspector
+   group: ironic-inspector
+   backup: yes
+
+- name: Copy ironic database file
+  template:
+   src: "{{ ironic_db_sync }}"
+   dest: "{{ ironic_db_dir }}"
+   owner: ironic
+   group: ironic
+   mode: 0775
+
+- name: Populate Ironic service database
+  command: sh {{ ironic_db_dir }} && {{ root_hit }}.ironic_db_sync
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.ironic_db_sync"
+  run_once: true
+  ignore_errors: True
+
+- file: path={{ ironic_db_dir }} state=absent
+
+- name: Start ironic-api service
+  service: name=openstack-ironic-api state=started enabled=yes
+
+- name: Start openstack-ironic-conductor service
+  service: name=openstack-ironic-conductor state=started enabled=yes
+
+- name: Start openstack-ironic-inspector service
+  service: name=openstack-ironic-inspector state=started enabled=yes
+
+- name: Start libvirtd service
+  service: name=libvirtd state=restarted enabled=yes
+
+- name: Start openstack-nova-compute service
+  service: name=openstack-nova-compute state=started enabled=yes
+
+- name: Create PXE directory
+  file: path=/tftpboot state=directory owner=ironic group=ironic mode=0755
+
+- name: Install xinetd tftp-server syslinux-tftpboot packages
+  yum: state=present name={{ item }}
+  with_items:
+  - tftp-server 
+  - syslinux-tftpboot
+  - xinetd
+
+- name: Copy xinetd for tftp file
+  template:
+   src: "tftp.j2"
+   dest: "/etc/xinetd.d/tftp"
+   backup: yes
+
+- name: Start xinetd service
+  service: name=xinetd state=started enabled=yes
+
+- name: Copy PXE chain.c32 file
+  template:
+   src: "chain.c32.j2"
+   dest: "/tftpboot"
+
+- name: Copy PXE pxelinux.0 file
+  copy:
+   src: "pxelinux.0.j2"
+   dest: "/tftpboot"
+
+- name: Copy PXE map-file file
+  template:
+   src: "map-file.j2"
+   dest: "/tftpboot"

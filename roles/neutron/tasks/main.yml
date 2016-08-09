@@ -1,0 +1,172 @@
+---
+- name: Create neutron database 
+  mysql_db: name=neutron state=present
+
+- name: Grant proper access to the neutron database
+  mysql_user: name=neutron password={{ neutrondb_password }} priv=*.*:ALL,GRANT state=present
+
+- name: Install Networking components packages
+  yum: state=present name={{ item }}
+  with_items:
+  - openstack-neutron 
+  - openstack-neutron-ml2 
+  - openstack-neutron-linuxbridge
+  - ebtables
+
+- name: Create neutron user
+  shell: source /root/admin-openrc &&  {{ openstack }} user create --domain default --password {{ neutron_password }} neutron && {{ root_hit }}.neutron_user
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.neutron_user"
+  run_once: true
+  ignore_errors: True
+
+- name: Add admin role to the neutron user and service project
+  shell: source /root/admin-openrc && {{ openstack }} role add --project service --user neutron admin && {{ root_hit }}.neutron_role
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.neutron_role"
+  run_once: true
+  ignore_errors: True 
+
+- name: Create neutron service entity
+  shell: source /root/admin-openrc && {{ openstack }} service create --name neutron --description "OpenStack Networking" network && {{ root_hit }}.neutron_service
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.neutron_service"
+  run_once: true
+  ignore_errors: True
+
+- name: Create Networking service API endpoints
+  shell: source /root/admin-openrc && {{ openstack }} endpoint create --region RegionOne network public http://{{ inventory_hostname }}:9696 && {{ root_hit }}.neutron_endpoint_public
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.neutron_endpoint_public"
+  run_once: true
+  ignore_errors: True
+
+- name: Create Networking service API endpoints
+  shell: source /root/admin-openrc && {{ openstack }} endpoint create --region RegionOne network internal http://{{ inventory_hostname }}:9696 && {{ root_hit }}.neutron_endpoint_internal
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.neutron_endpoint_internal"
+  run_once: true
+  ignore_errors: True
+
+- name: Create Networking service API endpoints
+  shell: source /root/admin-openrc && {{ openstack }} endpoint create --region RegionOne network admin http://{{ inventory_hostname }}:9696 && {{ root_hit }}.neutron_endpoint_admin
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.neutron_endpoint_admin"
+  run_once: true
+  ignore_errors: True
+
+- name: Copy neutron conf file
+  template:
+   src: "{{ neutron_src }}"
+   dest: "{{ neutron_dir }}"
+   owner: neutron
+   group: neutron
+   backup: yes
+
+- name: Copy neutron ml2 file
+  template:
+   src: "{{ neutron_ml2_src }}"
+   dest: "{{ neutron_ml2_dir }}"
+   owner: neutron
+   group: neutron
+   backup: yes
+
+- name: Copy neutron Linux bridge agent
+  template:
+   src: "{{ linuxbridge_agent_src }}"   
+   dest: "{{ linuxbridge_agent_dir }}"
+   owner: neutron
+   group: neutron
+   backup: yes
+
+- name: Copy neutron l3 file
+  template:
+   src: "{{ neutron_l3_src }}"
+   dest: "{{ neutron_l3_dir }}"
+   owner: neutron
+   group: neutron
+   backup: yes
+
+- name: Copy neutron dhcp file
+  template:
+   src: "{{ neutron_dhcp_src }}"
+   dest: "{{ neutron_dhcp_dir }}"
+   owner: neutron
+   group: neutron
+   backup: yes
+
+#- name: Copy neutron enable the DHCP MTU option
+#  template:
+#   src: "{{ dnsmasq_config_src }}"
+#   dest: "{{ dnsmasq_config_dir }}"
+#   owner: neutron
+#   group: neutron
+
+- name: Copy neutron metadata file
+  template:
+   src: "{{ neutron_metadata_src }}"
+   dest: "{{ neutron_metadata_dir }}"
+   owner: neutron
+   group: neutron
+   backup: yes
+
+- name: Copy neutron database file
+  template:
+   src: "{{ neutron_db_sync }}"
+   dest: "{{ neutron_db_dir }}"
+   owner: neutron
+   group: neutron
+   mode: 0775
+
+- name: Networking service initialization scripts expect a symbolic link
+  file: src=/etc/neutron/plugins/ml2/ml2_conf.ini dest=/etc/neutron/plugin.ini state=link
+
+- name: Populate the Neuton service database
+  command: sh {{ neutron_db_dir }} && {{ root_hit }}.neutron_db_sync
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.neutron_db_sync"
+  run_once: true
+  ignore_errors: True
+
+- file: path={{ neutron_db_dir }} state=absent
+
+- name: Restart openstack-nova-api service
+  service: name=openstack-nova-api state=restarted
+
+- name: Start neutron-server service
+  service: name=neutron-server state=started enabled=yes
+
+- name: Start neutron-linuxbridge-agent service
+  service: name=neutron-linuxbridge-agent state=started enabled=yes
+
+- name: Start neutron-dhcp-agent service
+  service: name=neutron-dhcp-agent state=started enabled=yes
+
+- name: Start neutron-metadata-agent service
+  service: name=neutron-metadata-agent state=started enabled=yes
+
+- name: Start neutron-l3-agent service
+  service: name=neutron-l3-agent state=started enabled=yes
+
+- name: create external network
+  shell: source /root/admin-openrc && neutron net-create {{ net_name }}  --shared --provider:network_type flat --provider:physical_network {{ flat_networks }} && {{ root_hit }}.neutron_net
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.neutron_net"
+  run_once: true
+  ignore_errors: True
+
+- name:  create a subnet on the external network
+  shell: source /root/admin-openrc && neutron subnet-create {{ net_name }} {{ network_cidr }} --name {{ subnet_name }} --ip-version=4 --gateway={{ gateway_ip }} --allocation-pool start={{ start_ip }},end={{ end_ip }} --enable-dhcp && {{ root_hit }}.neutron_subnet
+  args:
+   executable: /bin/bash
+   creates: "{{ root_dir }}.neutron_subnet"
+  run_once: true
+  ignore_errors: True

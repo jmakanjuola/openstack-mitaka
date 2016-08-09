@@ -1,0 +1,5 @@
+/usr/bin/mysql -uroot -e "grant all on keystone.* to keystone@{{ inventory_hostname }} identified by '{{ keystonedb_password }}';"
+/usr/bin/mysql -uroot -e "grant all on keystone.* to keystone@localhost identified by '{{ keystonedb_password }}';"
+/usr/bin/mysql -uroot -e "grant all on keystone.* to keystone@'%' identified by '{{ keystonedb_password }}';"
+su -s /bin/sh -c "keystone-manage db_sync" keystone
+keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone

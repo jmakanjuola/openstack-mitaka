@@ -1,0 +1,19 @@
+---
+- name: Install Nova Compute packages
+  yum: state=present name={{ item }}
+  with_items:
+  - openstack-nova-compute
+
+- name: Copy nova file
+  template:
+   src: "{{ nova_compute_src }}"
+   dest: "{{ nova_compute_dir }}"
+   owner: nova
+   group: nova
+   backup: yes
+
+- name: Start libvirt service
+  service: name=libvirtd state=started enabled=yes
+
+- name: Start Compute service 
+  service: name=openstack-nova-compute state=started enabled=yes
