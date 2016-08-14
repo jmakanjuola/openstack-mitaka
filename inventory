@@ -1,5 +1,5 @@
 [controller]
-controller ansible_host=192.168.1.3 ansible_user=root ansible_ssh_pass=omololu ansible_become=true
+controller ansible_host=172.16.0.21 ansible_user=root ansible_ssh_pass=omololu ansible_become=true
 
 [compute]
-compute ansible_host=192.168.1.25 ansible_user=root ansible_ssh_pass=omololu ansible_become=true
+compute ansible_host=172.16.0.22 ansible_user=root ansible_ssh_pass=omololu ansible_become=true
